@@ -12,8 +12,9 @@ description: >-
   "replay this trade", "what are the odds", "simulate this trade", "monte
   carlo", "backtest this setup", "how often does this hit the target", "is
   this a coin flip", or after /trader-exit writes a plan, before
-  /trader-budget.
-argument-hint: "[path to plan.json, or TICKER]"
+  /trader-budget. Also replays spot gold (XAUUSD) the same way, on gold's
+  6:00 PM to 5:00 PM New York day, from COMEX gold futures (GC=F) bars.
+argument-hint: "[path to plan.json, or TICKER, or XAUUSD]"
 ---
 
 # trader-timemachine
@@ -42,6 +43,41 @@ python3 "${CLAUDE_SKILL_DIR}/timemachine.py" chart --from           # ASCII fan 
 Other flags: `--replays N`, `--seed N` (default 19), `--window N` (default 2
 bars), `--offline FILE` (a saved Yahoo chart JSON, `.json` or `.json.gz`),
 `--now "2026-10-19 10:15"` (New York time) to pin the clock.
+
+## Gold: XAUUSD
+
+The same tool, the same way, for spot gold:
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/timemachine.py" run --symbol XAUUSD --date 2026-10-23 \
+    --entry 4110 --stop 4100 --target 4130 --entry-time "10:15 AM"
+python3 "${CLAUDE_SKILL_DIR}/timemachine.py" run --symbol XAUUSD ... --range-start "3:00 AM"   # London open
+python3 "${CLAUDE_SKILL_DIR}/timemachine.py" run --symbol XAUUSD ... --until "11:30 AM"        # your flat-by
+```
+
+The symbol picks the market: `XAUUSD` (also `XAUUSDf`, `XAU`, `GC=F`) is
+gold, anything else is a US stock. `--market xau` or `--market us-stock`
+forces it, and `"market": "xau"` does the same in a plan.json.
+
+- **The data.** Yahoo has no clean 5-minute spot gold, so the replays read
+  COMEX gold futures, `GC=F` (`--data-symbol MGC=F` or `XAUUSD=X` to change
+  it). Every replayed bar is a ratio to the bar before it, so futures' moves
+  carry over to your spot prices as they are. Futures trade a little above
+  spot; the report says which bar it read and does not hold your entry to
+  the futures' price. The history replay runs on the futures' own prices,
+  in R, so the basis does not change its count.
+- **The day.** CME Globex: 6:00 PM to 5:00 PM New York, Sunday evening to
+  Friday, 276 five-minute bars. A bar after 6:00 PM belongs to the next
+  day's session, so `--date 2026-10-19` with `--entry-time "8:00 PM"` is
+  Sunday evening's bar. The default `--until` is 5:00 PM.
+- **The opening range** starts at 8:20 AM New York by default (the COMEX
+  open), not at 6:00 PM. `--range-start` moves it, for example `"3:00 AM"`
+  for London. Write times with AM or PM: a bare "8:20" reads as the evening.
+- **Thin hours.** A session missing up to 12 bars (an hour) of overnight
+  trading stays in the pool, each gap filled flat at the previous close; the
+  report counts them. Shorter days (holidays, early closes) are left out.
+- **What can break it:** Fed decisions, CPI, jobs reports and geopolitical
+  headlines. Check the calendar before trusting the odds.
 
 ## What it reads and writes
 
